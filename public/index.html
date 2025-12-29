@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrivChat VIP</title>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
+    <style>
+        :root { --primary: #4f46e5; --bg-chat: #f9fafb; --dark: #1f2937; --white: #ffffff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #e5e7eb; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        
+        .overlay { position: fixed; inset: 0; background: var(--primary); z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; transition: 0.5s; }
+        .login-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(12px); padding: 30px; border-radius: 24px; text-align: center; width: 350px; border: 1px solid rgba(255,255,255,0.2); }
+        .avatar-preview { width: 80px; height: 80px; background: #fff; border-radius: 50%; margin: 0 auto 10px; overflow: hidden; border: 3px solid white; cursor: pointer; }
+        .avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .login-card input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 12px; border: none; outline: none; }
+        .login-card button { width: 100%; padding: 14px; margin-top: 15px; border-radius: 12px; border: none; background: var(--dark); color: white; font-weight: bold; cursor: pointer; }
+
+        .chat-container { width: 100%; max-width: 500px; height: 95vh; background: var(--white); display: flex; flex-direction: column; border-radius: 24px; overflow: hidden; position: relative; }
+        .header { background: var(--white); padding: 15px 20px; border-bottom: 1px solid #eee; }
+        #typing-status { font-size: 11px; color: var(--primary); font-weight: 600; height: 15px; }
+        #chat-box { flex: 1; padding: 20px; background-color: var(--bg-chat); background-image: url("https://www.toptal.com/designers/subtlepatterns/uploads/double-bubble-outline.png"); overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        
+        .msg-wrapper { display: flex; gap: 10px; max-width: 85%; transition: all 0.4s ease; }
+        .sent-wrapper { align-self: flex-end; flex-direction: row-reverse; }
+        .received-wrapper { align-self: flex-start; }
+        .msg-avatar { width: 35px; height: 35px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
+        .message { padding: 10px 14px; border-radius: 15px; font-size: 14px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .sent { background: var(--primary); color: white; border-top-right-radius: 2px; }
+        .received { background: white; color: var(--dark); border-top-left-radius: 2px; }
+        
+        .delete-btn { font-size: 10px; color: #ff9494; cursor: pointer; display: none; margin-top: 5px; text-align: right; font-weight: bold; }
+        .sent:hover .delete-btn { display: block; }
+        .system-msg { background: #fee2e2; color: #991b1b; align-self: center; font-size: 10px; padding: 4px 12px; border-radius: 20px; font-weight: bold; }
+        .user-label { font-size: 10px; font-weight: bold; margin-bottom: 3px; display: block; opacity: 0.8; }
+        .chat-img { max-width: 100%; border-radius: 10px; margin-top: 5px; cursor: pointer; }
+
+        .input-area { background: white; padding: 15px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #eee; }
+        input#msg { flex: 1; padding: 12px 18px; border-radius: 25px; border: 1px solid #ddd; outline: none; background: #f9fafb; }
+        .btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #9ca3af; }
+        .btn-send { color: var(--primary); font-size: 28px; }
+        .recording { color: #ef4444 !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { transform: scale(1.2); } }
+        emoji-picker { position: absolute; bottom: 85px; left: 20px; display: none; width: 320px; height: 400px; z-index: 100; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen" class="overlay">
+        <div class="login-card">
+            <h1>PrivChat Indigo</h1>
+            <div class="avatar-preview" onclick="document.getElementById('avatar-input').click()">
+                <img id="preview-img" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
+            </div>
+            <input type="file" id="avatar-input" hidden accept="image/*" onchange="previewAvatar()">
+            <input type="text" id="username" placeholder="Nama Anda">
+            <input type="text" id="room" placeholder="ID Ruangan">
+            <input type="password" id="room-pass" placeholder="Password (Opsional)">
+            <button onclick="join()">MULAI CHAT</button>
+        </div>
+    </div>
+
+    <div class="chat-container">
+        <div class="header"><h3 id="room-display">Room</h3><div id="typing-status"></div></div>
+        <div id="chat-box"></div>
+        <emoji-picker id="picker"></emoji-picker>
+        <div class="input-area">
+            <button class="btn" onclick="toggleEmoji()">😊</button>
+            <button class="btn" onclick="document.getElementById('fileInput').click()">📷</button>
+            <input type="file" id="fileInput" hidden accept="image/*" onchange="uploadPhoto()">
+            <button class="btn" id="vn-btn">🎤</button>
+            <input type="text" id="msg" placeholder="Tulis..." oninput="isTyping()" onkeypress="if(event.key==='Enter') send()">
+            <button class="btn btn-send" onclick="send()">➤</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let myUser, myRoom, myAvatar = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+        let mediaRecorder, audioChunks = [];
+        const notifySound = new Audio('notify.mp3');
+
+        function previewAvatar() {
+            const file = document.getElementById('avatar-input').files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => { document.getElementById('preview-img').src = e.target.result; myAvatar = e.target.result; };
+            reader.readAsDataURL(file);
+        }
+
+        function join() {
+            myUser = document.getElementById('username').value;
+            const rName = document.getElementById('room').value;
+            const rPass = document.getElementById('room-pass').value;
+            if(myUser && rName) {
+                myRoom = rName + "_" + rPass;
+                document.getElementById('login-screen').style.opacity = '0';
+                setTimeout(() => document.getElementById('login-screen').style.display = 'none', 500);
+                document.getElementById('room-display').innerText = "Room: " + rName;
+                socket.emit('join-room', { username: myUser, room: myRoom });
+            }
+        }
+
+        function isTyping() {
+            socket.emit('typing', { room: myRoom, isTyping: true });
+            clearTimeout(window.tOut);
+            window.tOut = setTimeout(() => socket.emit('typing', { room: myRoom, isTyping: false }), 2000);
+        }
+        socket.on('user-typing', (data) => { document.getElementById('typing-status').innerText = data.isTyping ? `${data.user} mengetik...` : ""; });
+
+        function send() {
+            const val = document.getElementById('msg').value;
+            if(val.trim()) {
+                socket.emit('send-chat', { room: myRoom, message: val, avatar: myAvatar });
+                document.getElementById('msg').value = "";
+                document.getElementById('picker').style.display = 'none';
+            }
+        }
+
+        function toggleEmoji() { const p = document.getElementById('picker'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
+        document.getElementById('picker').addEventListener('emoji-click', e => { document.getElementById('msg').value += e.detail.unicode; });
+
+        function uploadPhoto() {
+            const file = document.getElementById('fileInput').files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => socket.emit('send-image', { room: myRoom, image: e.target.result, avatar: myAvatar });
+                reader.readAsDataURL(file);
+            }
+        }
+
+        const vnBtn = document.getElementById('vn-btn');
+        let isRec = false;
+        const startR = async (e) => {
+            e.preventDefault(); if(isRec) return;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    if(blob.size > 2000) {
+                        const r = new FileReader(); r.readAsDataURL(blob);
+                        r.onloadend = () => socket.emit('send-vn', { room: myRoom, audio: r.result, avatar: myAvatar });
+                    }
+                    stream.getTracks().forEach(t => t.stop());
+                };
+                mediaRecorder.start(); isRec = true; vnBtn.classList.add('recording');
+            } catch (err) {}
+        };
+        const stopR = () => { if(isRec) { mediaRecorder.stop(); isRec = false; vnBtn.classList.remove('recording'); } };
+        vnBtn.addEventListener('mousedown', startR); vnBtn.addEventListener('mouseup', stopR);
+        vnBtn.addEventListener('touchstart', startR); vnBtn.addEventListener('touchend', stopR);
+
+        // FITUR HAPUS SINKRON
+        function deleteMsg(id) {
+            if(confirm("Hapus pesan ini untuk semua orang?")) {
+                socket.emit('delete-msg', { room: myRoom, messageId: id });
+            }
+        }
+
+        socket.on('remove-from-dom', (id) => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.style.opacity = "0";
+                el.style.transform = "scale(0.8)";
+                setTimeout(() => el.remove(), 400);
+            }
+        });
+
+        // RENDER PESAN
+        socket.on('chat-msg', data => render(data.id, data.user, data.text, 'text', data.avatar));
+        socket.on('receive-image', data => render(data.id, data.user, data.image, 'image', data.avatar));
+        socket.on('receive-vn', data => render(data.id, data.user, data.audio, 'vn', data.avatar));
+
+        function render(msgId, user, content, type, avatar) {
+            const box = document.getElementById('chat-box');
+            if(user === 'Sistem') {
+                const div = document.createElement('div'); div.className = 'system-msg';
+                div.innerText = content; box.appendChild(div); return;
+            }
+
+            const isMe = user === myUser;
+            if(!isMe) notifySound.play().catch(()=>{});
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = `msg-wrapper ${isMe ? 'sent-wrapper' : 'received-wrapper'}`;
+            wrapper.id = msgId; // ID dari server
+            
+            const img = `<img src="${avatar || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" class="msg-avatar">`;
+            const delBtn = isMe ? `<div class="delete-btn" onclick="deleteMsg('${msgId}')">Hapus</div>` : "";
+            
+            let bubble = `<div class="message ${isMe ? 'sent' : 'received'}">
+                <span class="user-label">${isMe ? 'Anda' : user}</span>`;
+            
+            if(type === 'text') bubble += content;
+            else if(type === 'image') bubble += `<img src="${content}" class="chat-img" onclick="window.open(this.src)">`;
+            else if(type === 'vn') bubble += `<audio controls src="${content}" style="width:180px; height:35px;"></audio>`;
+            
+            bubble += delBtn + `</div>`;
+            wrapper.innerHTML = isMe ? bubble + img : img + bubble;
+            box.appendChild(wrapper);
+            box.scrollTop = box.scrollHeight;
+        }
+    </script>
+</body>
+</html>
